@@ -1,0 +1,60 @@
+	// Can also add a loaded sprite with 'ui.AddSprite'
+	//spriteId, sprite := ui.AddSpriteFromFile("golang.png")
+	//fmt.Println(spriteId)
+	// spriteId, sprite := ui.AddSpriteFromFile("ship.png")
+
+	//imgui.StyleColorsLight()
+
+	//angle := 0.0
+    //last := time.Now()
+
+    //dt := time.Since(last).Seconds()
+    //last = time.Now()
+    //angle += 3 * dt
+
+    //_, framerate := ticker.Tick()
+
+    //if ui.JustPressed(pixelgl.MouseButtonLeft) {
+    //	fmt.Println("Left pressed")
+    //}
+    //
+    //if ui.JustReleased(pixelgl.MouseButtonLeft) {
+    //	fmt.Println("Left released")
+    //}
+
+    //imgui.Begin("Image Test")
+    //imgui.Text(fmt.Sprintf("%.2f", framerate))
+    //// Use the pixelui 'Image' helper function
+    ////ui.Image("golang", 0.5)
+    //// Use the default imgui 'Image' function
+    //imgui.Image(spriteId, pixelui.IVec(sprite.Picture().Bounds().Size().Scaled(0.25)))
+    //imgui.End()
+
+    /*
+       #include "imgui.h"
+       struct ImDrawVert {
+           ImVec2  pos;
+           ImVec2  uv;
+           ImU32   col;
+       };
+    */
+
+    frames++
+    select {
+    case <-second:
+        win.SetTitle(fmt.Sprintf("%s | FPS: %d", cfg.Title, frames))
+        frames = 0
+    default:
+    }
+
+    if win.JustReleased(pixelgl.KeyEscape) {
+        win.SetClosed(true)
+    }
+
+    //ui := pixelui.NewUI(win, 0)
+    //defer ui.Destroy()
+    //ui.AddTTFFont("03b04.ttf", 16)
+
+    //ui.NewFrame()
+    //imgui.ShowDemoWindow(nil)
+    //ui.Draw(win)
