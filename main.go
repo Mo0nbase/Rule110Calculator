@@ -1,5 +1,5 @@
 package main
 
-//func main() {
-//	fmt.Println("Hello World")
-//}
+func main() {
+	simulate(true, 0)
+}

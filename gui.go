@@ -12,17 +12,20 @@ import (
 	"github.com/faiface/pixel/pixelgl"
 )
 
-func main() {
-	pixelgl.Run(run)
-}
+//var batches map[*pixel.Batch]pixel.Batch
+
+//func main() {
+//	pixelgl.Run(run)
+//}
 
 func run() {
 	cfg := pixelgl.WindowConfig{
-		Title:  "Cellular Automata Calculator",
-		Bounds: pixel.R(0, 0, 1920, 1080),
-		VSync: true,
+		Title:     "Cellular Automata Calculator",
+		Bounds:    pixel.R(0, 0, 1920, 1080),
+		VSync:     true,
 		Maximized: true,
 	}
+
 	win, err := pixelgl.NewWindow(cfg)
 	if err != nil {
 		log.Fatal(err)
@@ -32,13 +35,14 @@ func run() {
 
 	square := imdraw.New(nil)
 	square.Color = colornames.Black
-	square.Push(pixel.V(960,540),pixel.V(965,545))
+	square.Push(pixel.V(960, 540), pixel.V(965, 545))
 	square.Rectangle(0)
 
 	win.SetComposeMethod(pixel.ComposeIn)
 
 	//batch := pixel.NewBatch(&pixel.TrianglesData{}, square)
 
+	lpc := 0
 	for !win.Closed() {
 		//win.Clear(colornames.Antiquewhite)
 		win.Clear(colornames.White)
@@ -51,24 +55,13 @@ func run() {
 				B: 135,
 				A: 255,
 			}
-			square.Push(pixel.V(960,540),pixel.V(1200,800))
-			square.Rectangle(0)
-		}
-
-		if win.JustPressed(pixelgl.MouseButtonRight) {
-			square.Clear()
-			square.Color = color.RGBA{
-				R: 0,
-				G: 0,
-				B: 213,
-				A: 1,
-			}
-			square.Push(pixel.V(960,540),pixel.V(1200,800))
+			square.Push(pixel.V(960, 540), pixel.V(1200, 800))
 			square.Rectangle(0)
 		}
 
 		square.Draw(win)
 
+		lpc++
 		win.Update()
 		ticker.Wait()
 	}
