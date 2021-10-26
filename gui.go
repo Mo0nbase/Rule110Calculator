@@ -2,14 +2,13 @@ package main
 
 import (
 	"github.com/dusk125/pixelutils"
+	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
+	"github.com/faiface/pixel/pixelgl"
 	"golang.org/x/image/colornames"
 	"image/color"
 	_ "image/png"
 	"log"
-
-	"github.com/faiface/pixel"
-	"github.com/faiface/pixel/pixelgl"
 )
 
 //var batches map[*pixel.Batch]pixel.Batch
