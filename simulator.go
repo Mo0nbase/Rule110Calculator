@@ -73,43 +73,18 @@ func simulate(history bool, evolutions int) time.Duration {
 			}
 		}
 	} else {
-		for i, k := 1, 0; i < evolutions+1; i++ {
+		for i, k := 1, 0; i < evolutions+1; i, k = i+1, k^1 {
 			for j := 0; j < len(sim[0]); j++ {
-				if k == 0 {
-					if j == 0 {
-						sim[k+1][j] = ((^(sim[k][len(sim[k])-1]) << 1) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
-					} else if j == len(sim[k])-1 {
-						sim[k+1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][0]>>1)
-					} else {
-						sim[k+1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
-					}
-					if j == len(sim[0])-1 {
-						k++
-					}
+				if j == 0 {
+					sim[k^1][j] = ((^(sim[k][len(sim[k])-1]) << 1) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
+				} else if j == len(sim[k])-1 {
+					sim[k^1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][0]>>1)
 				} else {
-					if j == 0 {
-						sim[k-1][j] = ((^(sim[k][len(sim[k])-1]) << 1) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
-					} else if j == len(sim[k])-1 {
-						sim[k-1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][0]>>1)
-					} else {
-						sim[k-1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
-					}
-					if j == len(sim[0])-1 {
-						k--
-					}
+					sim[k^1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
 				}
 			}
 		}
 	}
-
-	//duration := time.Since(start)
-	//fmt.Println(duration)
-	//fmt.Println("------------------------------------------------")
-	//PrintMemUsage()
-
-	//fmt.Println("---------------------------------------------------")
-	//fmt.Println()
-	//displayFancy()
 	return time.Since(start)
 }
 
@@ -140,7 +115,6 @@ func readFromFile() {
 
 // REMEMBER: BINARY NUMBERS READ RIGHT TO LEFT!!!
 func displayRaw(layer int) {
-	//fmt.Println("REMEMBER: BINARY NUMBERS READ RIGHT TO LEFT!!!")
 	for i := 0; i < len(sim[layer]); i++ {
 		fmt.Printf("%064d", strconv.FormatInt(int64(sim[layer][i]), 2))
 		fmt.Println()
@@ -166,13 +140,11 @@ func displayFancy() {
 	fmt.Println()
 }
 
-// Sets the bit at pos in the integer n.
 func setBit(n uint64, pos uint64) uint64 {
 	n |= 1 << pos
 	return n
 }
 
-// Clears the bit at pos in n.
 func clearBit(n uint64, pos uint64) uint64 {
 	mask := ^(1 << pos)
 	n &= uint64(mask)

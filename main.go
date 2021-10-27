@@ -17,7 +17,7 @@ func main() {
 		if err != nil {
 			return
 		}
-		data[i] = simulate(true, 20000)
+		data[i] = simulate(false, 20000)
 	}
 	var s = time.Duration(0)
 	for i := range data {
@@ -49,7 +49,6 @@ func main() {
 	fmt.Println("Average time in microseconds: " + fmt.Sprintf("%f", float64(s.Microseconds())/float64(len(data))))
 	fmt.Println("Average time in milliseconds: " + fmt.Sprintf("%f", float64(s.Milliseconds())/float64(len(data))))
 	fmt.Println("Average time in seconds: " + fmt.Sprintf("%f", s.Seconds()/float64(len(data))))
-
 	fmt.Println("Total amount of simulations: " + strconv.Itoa(len(data)))
 
 	/** SPEED TESTS (Sample: 10000)
@@ -66,15 +65,12 @@ func main() {
 		Average time in milliseconds: 11.988100
 		Average time in seconds: 0.011988
 		Total amount of simulations: 10000
+	------------------------------------------------
+		NEW! History FALSE @ 20000 evolutions (101 it/s) 21% FASTER
+		Average time in nanoseconds: 9880881.055400
+		Average time in microseconds: 9880.881000
+		Average time in milliseconds: 9.880800
+		Average time in seconds: 0.009881
+		Total amount of simulations: 10000
 	*/
-}
-
-func testoverwritespeed() time.Duration {
-	start := time.Now()
-	for i := 1; i < 20000-1; i++ {
-		for j := 0; j < len(sip[i]); j++ {
-			sip[i+1][j] = sip[i][j] ^ 0x4c3924&0x32343
-		}
-	}
-	return time.Since(start)
 }
