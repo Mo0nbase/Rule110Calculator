@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math"
+	"os"
 	"runtime"
 	"strconv"
 	"time"
@@ -19,17 +21,18 @@ func initialize(initial []uint64, evolutions int, history bool) {
 		initial = initial[1:]
 	}
 
-	loopLength := int(math.Ceil(float64(len(initial)) / 64.0))
+	sim = nil
+	loopLength := int(math.Ceil(float64((len(initial))+evolutions) / 64.0))
 
 	if history == true {
 		sim = make([][]uint64, evolutions+1)
 		for i := range sim {
-			sim[i] = make([]uint64, loopLength+int(math.Ceil(float64(evolutions/64.0))))
+			sim[i] = make([]uint64, loopLength)
 		}
 	} else {
 		sim = make([][]uint64, 2)
 		for i := range sim {
-			sim[i] = make([]uint64, loopLength+int(math.Ceil(float64(evolutions/64.0))))
+			sim[i] = make([]uint64, loopLength)
 		}
 	}
 
@@ -51,66 +54,80 @@ func initialize(initial []uint64, evolutions int, history bool) {
 	}
 }
 
-func simulate(history bool, evolutions int) time.Duration {
-	start := time.Now()
-	if sim == nil {
+func simulate(history bool, evolutions int, conditions []uint64) time.Duration {
+	if conditions == nil {
 		fmt.Println("Program uninitialized using default...")
 		fmt.Println()
-		var testSplit = r110Default()
-		initialize(testSplit, evolutions, history)
+		initialize(r110Default(), evolutions, history)
+	} else {
+		initialize(conditions, evolutions, history)
 	}
 
+	start := time.Now()
 	if history == true {
-		for i := 1; i < evolutions+1; i++ {
-			for j := 0; j < len(sim[i]); j++ {
-				if j == 0 {
-					sim[i][j] = ((^(sim[i-1][len(sim[i-1])-1]) << 1) & sim[i-1][j]) | (sim[i-1][j] ^ sim[i-1][j+1])
-				} else if j == len(sim[i])-1 {
-					sim[i][j] = ((^(sim[i-1][j-1])) & sim[i-1][j]) | (sim[i-1][j] ^ sim[i-1][0]>>1)
-				} else {
-					sim[i][j] = ((^(sim[i-1][j-1])) & sim[i-1][j]) | (sim[i-1][j] ^ sim[i-1][j+1])
-				}
-			}
-		}
+		historicallyAware(evolutions)
 	} else {
-		for i, k := 1, 0; i < evolutions+1; i, k = i+1, k^1 {
-			for j := 0; j < len(sim[0]); j++ {
-				if j == 0 {
-					sim[k^1][j] = ((^(sim[k][len(sim[k])-1]) << 1) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
-				} else if j == len(sim[k])-1 {
-					sim[k^1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][0]>>1)
-				} else {
-					sim[k^1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
-				}
-			}
-		}
+		historicallyUnaware(evolutions)
 	}
 	return time.Since(start)
 }
 
-func PrintMemUsage() {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
-	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
-	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
-	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+func historicallyAware(evolutions int) {
+	for i := 1; i < evolutions+1; i++ {
+		sim[i][0] = ((^(sim[i-1][len(sim[i-1])-1]) << 1) & sim[i-1][0]) | (sim[i-1][0] ^ sim[i-1][1])
+		for j := 1; j < len(sim[i])-1; j++ {
+			sim[i][j] = ((^(sim[i-1][j-1])) & sim[i-1][j]) | (sim[i-1][j] ^ sim[i-1][j+1])
+		}
+		sim[i][len(sim[i])-1] = ((^(sim[i-1][len(sim[i])-2])) & sim[i-1][len(sim[i])-1]) | (sim[i-1][len(sim[i])-1] ^ sim[i-1][0]>>1)
+	}
 }
 
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
+func historicallyUnaware(evolutions int) {
+	for i, k := 1, 0; i < evolutions+1; i, k = i+1, k^1 {
+		sim[k^1][0] = ((^(sim[k][len(sim[k])-1]) << 1) & sim[k][0]) | (sim[k][0] ^ sim[k][1])
+		for j := 1; j < len(sim[0])-1; j++ {
+			sim[k^1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
+		}
+		sim[k^1][len(sim[0])-1] = ((^(sim[k][len(sim[0])-2])) & sim[k][len(sim[0])-1]) | (sim[k][len(sim[0])-1] ^ sim[k][0]>>1)
+	}
 }
 
-func readTape() uint64 {
-	return 1
+func readTape() {
 }
 
 func writeToFile() {
+	file, err := os.Create("data.bin")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	enc := gob.NewEncoder(file)
+	if err := enc.Encode(sim); err != nil {
+		fmt.Println(err)
+		return
+	}
 
+	fmt.Println("Structure written into file successfully")
+
+	err = file.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 
 func readFromFile() {
+	file, err := os.Open("data.bin")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	dec := gob.NewDecoder(file)
+	if err := dec.Decode(&sim); err != nil {
+		fmt.Println(err)
+	}
 
+	fmt.Println("Structure read from file successfully")
 }
 
 // REMEMBER: BINARY NUMBERS READ RIGHT TO LEFT!!!
@@ -157,4 +174,17 @@ func getBit(n uint64, pos uint64) int {
 		return 1
 	}
 	return 0
+}
+
+func PrintMemUsage() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }
