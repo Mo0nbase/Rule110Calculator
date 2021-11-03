@@ -14,6 +14,7 @@ var sim [][]uint64
 
 // make sure to initialize with a raw array of 1 and 0
 func initialize(initial []uint64, evolutions int, history bool) {
+	//TODO add or fix right justification
 	for {
 		if initial[0] == 1 {
 			break
@@ -90,6 +91,62 @@ func historicallyUnaware(evolutions int) {
 		}
 		sim[k^1][len(sim[0])-1] = ((^(sim[k][len(sim[0])-2])) & sim[k][len(sim[0])-1]) | (sim[k][len(sim[0])-1] ^ sim[k][0]>>1)
 	}
+}
+
+func decompress(history bool) [][]uint64 {
+	if history {
+		out := make([][]uint64, len(sim))
+		for i := range out {
+			out[i] = make([]uint64, len(sim[0])*64)
+		}
+		lpc := 0
+		for i := 0; i < len(sim); i++ {
+			for j := 0; j < 64; j++ {
+				for k := 0; k < len(sim[i]); k++ {
+					out[i][lpc] = uint64(getBit(sim[i][k], uint64(j)))
+					lpc++
+				}
+			}
+			lpc = 0
+		}
+		return out
+	} else {
+		out := make([][]uint64, 1)
+		for i := range out {
+			out[i] = make([]uint64, len(sim[0])*64)
+		}
+		if countLeadingZeros(0) < countLeadingZeros(1) {
+			lpc := 0
+			for j := 0; j < 64; j++ {
+				for k := 0; k < len(sim[0]); k++ {
+					out[0][lpc] = uint64(getBit(sim[0][k], uint64(j)))
+					lpc++
+				}
+			}
+		} else {
+			lpc := 0
+			for j := 0; j < 64; j++ {
+				for k := 0; k < len(sim[1]); k++ {
+					out[1][lpc] = uint64(getBit(sim[1][k], uint64(j)))
+					lpc++
+				}
+			}
+		}
+		return out
+	}
+}
+
+func countLeadingZeros(layer int) int {
+	zeros := 0
+	for j := 0; j < 64; j++ {
+		for k := 0; k < len(sim[layer]); k++ {
+			if getBit(sim[layer][k], uint64(j)) == 1 {
+				return zeros
+			}
+			zeros++
+		}
+	}
+	return -1
 }
 
 func readTape() {

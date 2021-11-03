@@ -8,17 +8,23 @@ import (
 )
 
 func main() {
-	//performanceTest(10000, 20000, true)
-	simulate(true, 95, r110Default())
+	//performanceTest(4, 1000000, false)
+	simulate(false, 10, r110Default())
+
 	//readFromFile()
-	displayFancy()
+	//displayFancy()
+	//pixelgl.Run(run)
+	arr := decompress(false)
+	for i := range arr {
+		fmt.Println(arr[i])
+	}
 
 }
 
 func performanceTest(repetitions int, evolutions int, history bool) {
 	var data = make([]time.Duration, repetitions)
 	bar := progressbar.Default(int64(repetitions))
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < repetitions; i++ {
 		data[i] = simulate(history, evolutions, r110Default())
 		err := bar.Add(1)
 		if err != nil {
