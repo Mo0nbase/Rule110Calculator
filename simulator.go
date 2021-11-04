@@ -14,12 +14,15 @@ var sim [][]uint64
 
 // make sure to initialize with a raw array of 1 and 0
 func initialize(initial []uint64, evolutions int, history bool) {
-	//TODO add or fix right justification
 	for {
-		if initial[0] == 1 {
-			break
+		if initial[0] == 0 {
+			initial = initial[1:]
+			continue
+		} else if initial[len(initial)-1] == 0 {
+			initial = initial[:len(initial)-1]
+			continue
 		}
-		initial = initial[1:]
+		break
 	}
 
 	sim = nil
@@ -39,7 +42,7 @@ func initialize(initial []uint64, evolutions int, history bool) {
 
 	for i, j, k, p := 0, 0, 0, 0; i < 64; i++ {
 		for {
-			if k > ((len(sim[0]))*64 - len(initial)) {
+			if k >= ((len(sim[0]))*64 - len(initial)) { // potential issue here with >=
 				if p < len(initial) && initial[p] == 1 {
 					sim[0][j] = setBit(sim[0][j], uint64(i))
 				}
@@ -94,6 +97,7 @@ func historicallyUnaware(evolutions int) {
 }
 
 func decompress(history bool) [][]uint64 {
+	// TODO reformat these loops in compliance with initialization function
 	if history {
 		out := make([][]uint64, len(sim))
 		for i := range out {
@@ -159,7 +163,7 @@ func writeToFile() {
 		return
 	}
 	enc := gob.NewEncoder(file)
-	if err := enc.Encode(sim); err != nil {
+	if err = enc.Encode(sim); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -180,7 +184,7 @@ func readFromFile() {
 		return
 	}
 	dec := gob.NewDecoder(file)
-	if err := dec.Decode(&sim); err != nil {
+	if err = dec.Decode(&sim); err != nil {
 		fmt.Println(err)
 	}
 

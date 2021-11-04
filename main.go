@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/faiface/pixel/pixelgl"
 	"github.com/schollz/progressbar/v3"
 	"strconv"
 	"time"
@@ -9,16 +10,13 @@ import (
 
 func main() {
 	//performanceTest(4, 1000000, false)
-	simulate(false, 10, r110Default())
-
 	//readFromFile()
 	//displayFancy()
-	//pixelgl.Run(run)
-	arr := decompress(false)
-	for i := range arr {
-		fmt.Println(arr[i])
-	}
+	simulate(true, 3, r110Default())
+	displayFancy()
+	pixelgl.Run(run)
 
+	//arr := decompress(false)
 }
 
 func performanceTest(repetitions int, evolutions int, history bool) {

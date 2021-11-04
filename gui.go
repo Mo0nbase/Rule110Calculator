@@ -5,15 +5,67 @@ import (
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
+	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/image/colornames"
-	"image/color"
 	_ "image/png"
 	"log"
 )
 
-var cells [][]pixel.Rect
+var win *pixelgl.Window
+
+type cell struct {
+	alive  bool
+	square pixel.Rect
+	obj    *imdraw.IMDraw
+}
+
+var white, _ = colorful.MakeColor(colornames.Antiquewhite)
+var black, _ = colorful.MakeColor(colornames.Black)
+
+var cells [][]cell
 
 func run() {
+	initWindow()
+	loadCells(true)
+	ticker := pixelutils.NewTicker(120)
+
+	simmer := false
+	cl, clpc := 0, 0 //color layer, color loop count
+	for !win.Closed() {
+		win.Clear(colornames.Antiquewhite)
+
+		if win.JustPressed(pixelgl.MouseButtonLeft) {
+			simmer = true
+		}
+
+		if simmer {
+			if cl < len(cells) {
+				updateColors(uint64(cl), uint64(clpc))
+				//TODO this here is whats most likely broken check that you area actually updating the colors correctly
+				clpc++
+				if clpc == 120 {
+					clpc = 0
+					cl++
+				}
+			}
+
+			for i := range cells {
+				for j := range cells[i] {
+					cells[i][j].obj.Draw(win)
+				}
+			}
+		}
+
+		win.Update()
+		ticker.Wait()
+	}
+}
+
+func initWindow() {
+	if win != nil {
+		win = nil
+	}
+
 	cfg := pixelgl.WindowConfig{
 		Title:     "Cellular Automata Calculator",
 		Bounds:    pixel.R(0, 0, 1920, 1080),
@@ -21,69 +73,57 @@ func run() {
 		Maximized: true,
 	}
 
-	win, err := pixelgl.NewWindow(cfg)
+	err := error(nil)
+	win, err = pixelgl.NewWindow(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	ticker := pixelutils.NewTicker(120)
-
-	cell := pixel.R(960, 540, 990, 570)
-	square := imdraw.New(nil)
-	square.Color = colornames.Black
-	square.Push(cell.Min, cell.Max)
-	square.Rectangle(0)
 
 	win.SetComposeMethod(pixel.ComposeIn)
+}
 
-	lpc := 0
-	grow := false
-	shrink := false
-	for !win.Closed() {
-		win.Clear(colornames.Antiquewhite)
+func loadCells(history bool) {
+	data := decompress(history)
 
-		if win.JustPressed(pixelgl.MouseButtonLeft) {
-			square.Clear()
-			square.Color = color.RGBA{
-				R: 255,
-				G: 0,
-				B: 135,
-				A: 255,
-			}
-			grow = true
-		}
+	cells = make([][]cell, len(data))
+	for i := range cells {
+		cells[i] = make([]cell, len(data[0]))
+	}
 
-		// if pressed again its growing and shrinking at the same time in the same iteration
-		if grow == true {
-			square.Clear()
-			//cell = cell.Resized(cell.Center(), cell.Size().Add(pixel.V(cell.Size().X+0.005, cell.Size().Y+0.005)))
-			cell = cell.Resized(cell.Center(), cell.Size().Scaled(1.01))
-			square.Push(cell.Min, cell.Max)
-			square.Rectangle(0)
-			if cell.Size().X >= 500 && cell.Size().Y >= 500 {
-				shrink = true
-				grow = false
+	if history {
+		for i := range data {
+			for j := range data[i] {
+				cells[i][j].square = pixel.R(win.Bounds().Size().X-float64((len(data[i])-j)*10), win.Bounds().Size().Y-20-(float64(i*10)),
+					win.Bounds().Size().X-float64(((len(data[i])-j)*10)+10), win.Bounds().Size().Y-20-(float64(i*10))+10)
+				cells[i][j].obj = imdraw.New(nil)
+				if data[i][j] == 1 {
+					cells[i][j].obj.Color = black
+					cells[i][j].alive = true
+					cells[i][j].obj.Push(cells[i][j].square.Min, cells[i][j].square.Max)
+					cells[i][j].obj.Rectangle(0)
+				} else {
+					cells[i][j].obj.Color = white
+					cells[i][j].obj.Push(cells[i][j].square.Min, cells[i][j].square.Max)
+					cells[i][j].obj.Rectangle(0)
+				}
 			}
 		}
-		if shrink == true {
-			square.Clear()
-			cell = cell.Resized(cell.Center(), cell.Size().Scaled(0.99))
-			square.Push(cell.Min, cell.Max)
-			square.Rectangle(0)
-			if cell.Size().X <= 30 && cell.Size().Y <= 30 {
-				grow = true
-				shrink = false
-			}
-		}
+	} else {
 
-		square.Draw(win)
-
-		lpc++
-		win.Update()
-		ticker.Wait()
 	}
 }
 
-func loadCells() {
+func updateColors(layer uint64, iteration uint64) {
+	//NOTE iterations start at 0
+	for i := range cells[layer] {
+		if cells[layer][i].alive {
+			cells[layer][i].obj.Color = white.BlendRgb(black, float64(iteration/199))
+		}
+	}
+	// (250,235,215)
+	// for all cells that are alive
+	// the degree should reduce the colors to zero in a quarter of the framerate iterations
+	// it should not begin the next row until the previous has been completed
 
 }
 
