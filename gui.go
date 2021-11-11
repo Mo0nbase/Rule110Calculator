@@ -25,6 +25,7 @@ var framerate = int64(120)
 
 var white, _ = colorful.MakeColor(colornames.Antiquewhite)
 var black, _ = colorful.MakeColor(colornames.Black)
+var blendMax = float64(8)
 
 var cells [][]cell
 
@@ -32,36 +33,42 @@ func run() {
 	initWindow()
 	loadCells(true)
 
-	simmer := false
-	//colorLayer := 0
-	//multiplier := float64(framerate) * 1.0 // chagne to 0.8
+	drawInitial := false
+	offset := int(-blendMax)
 	for !win.Closed() {
 		win.Clear(colornames.Antiquewhite)
 
 		if win.JustPressed(pixelgl.MouseButtonLeft) {
-			simmer = !simmer
+			drawInitial = true
 		}
 
-		if simmer {
-			if cells[len(cells)-1][0].blend < 10 {
-				for i := 0; i < len(cells); i++ {
-					updateColors(uint64(i))
-					if cells[i][0].blend-1 == 0 {
-						break
+		if drawInitial {
+			if cells[len(cells)-1][0].blend < blendMax {
+				for i := offset; i <= offset+int(blendMax) && i < len(cells); i++ {
+					if i >= 0 {
+						updateColors(uint64(i))
 					}
-					// begin looping through the rows for cells
-					// if you run into a blend == 0 then update the row and break into the next loop
-					// loop through until the blend is 0 then adjust the color then break out to start the next iteration
+				}
+				offset++
+			} else {
+				drawInitial = false
+			}
+		}
+		// might be easier to store this as a constant
+		if drawInitial && int((win.Bounds().Size().Y-20.0)/6.0) < len(cells) && cells[int((win.Bounds().Size().Y-20.0)/6.0)][0].blend == blendMax {
+			drawInitial = false
+			for i := range cells {
+				for j := range cells[i] {
+					imd.Color = black
+					imd.Push(cells[i][j].square.Min, cells[i][j].square.Max)
+					imd.Rectangle(0)
 				}
 			}
-			// TODO fix so that the multiplier if over the frame rate the simulation starts updating multiple rows at once
-
-			// TODO add inital bounds checks lock out input untill the simulation has exponentially rendered all of the availiable cells within a starting area
-			// TODO add zoom and pan ability for the user
 		}
 
+		// TODO figure out how many evolutions it takes to reach the end of the window
+		// TODO add zoom and pan ability for the user
 		imd.Draw(win)
-
 		win.Update()
 		ticker.Wait()
 	}
@@ -97,13 +104,12 @@ func loadCells(history bool) {
 	for i := range cells {
 		cells[i] = make([]cell, len(data[0]))
 	}
-
 	if history {
 		for i := range data {
 			for j := range data[i] {
 				if data[i][j] == 1 {
-					cells[i][j].square = pixel.R(win.Bounds().Size().X-float64((len(data[i])-j)*3), win.Bounds().Size().Y-20-(float64(i*3)),
-						win.Bounds().Size().X-float64(((len(data[i])-j)*3)+3), win.Bounds().Size().Y-20-(float64(i*3))+3)
+					cells[i][j].square = pixel.R(win.Bounds().Size().X-float64((len(data[i])-j)*6), win.Bounds().Size().Y-15-(float64(i*6)),
+						win.Bounds().Size().X-float64(((len(data[i])-j)*6)+6), win.Bounds().Size().Y-15-(float64(i*6))+6)
 					imd.Color = white
 					cells[i][j].alive = true
 					cells[i][j].blend = 0
@@ -122,11 +128,21 @@ func loadCells(history bool) {
 
 func updateColors(layer uint64) {
 	for i := range cells[layer] {
-		if cells[layer][i].blend < 10 {
-			imd.Color = white.BlendRgb(black, cells[layer][i].blend/10)
+		if cells[layer][i].blend < blendMax {
+			imd.Color = white.BlendRgb(black, cells[layer][i].blend/blendMax)
 			imd.Push(cells[layer][i].square.Min, cells[layer][i].square.Max)
 			imd.Rectangle(0)
 			cells[layer][i].blend++
+		}
+	}
+}
+
+func translateCells(vector pixel.Vec) {
+	for i := range cells {
+		for j := range cells[i] {
+			cells[i][j].square = cells[i][j].square.Moved(vector)
+			imd.Push(cells[i][j].square.Min, cells[i][j].square.Max)
+			imd.Rectangle(0)
 		}
 	}
 }
@@ -137,6 +153,14 @@ func resizeCells(degree float64) {
 	// you cant scale with floats due to errors
 	// 1 = scale 10%
 	// 11 = scale 110%
+}
+
+func cellCount() int {
+	counter := 0
+	for i := range cells {
+		counter += len(cells[i])
+	}
+	return counter
 }
 
 func removeDead(objs []cell) []cell {
