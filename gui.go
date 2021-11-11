@@ -9,15 +9,19 @@ import (
 	"golang.org/x/image/colornames"
 	_ "image/png"
 	"log"
+	_ "math"
 )
-
-var win *pixelgl.Window
 
 type cell struct {
 	alive  bool
+	blend  float64
 	square pixel.Rect
-	obj    *imdraw.IMDraw
 }
+
+var win *pixelgl.Window
+var imd *imdraw.IMDraw
+var ticker *pixelutils.Ticker
+var framerate = int64(120)
 
 var white, _ = colorful.MakeColor(colornames.Antiquewhite)
 var black, _ = colorful.MakeColor(colornames.Black)
@@ -27,34 +31,36 @@ var cells [][]cell
 func run() {
 	initWindow()
 	loadCells(true)
-	ticker := pixelutils.NewTicker(120)
 
 	simmer := false
-	cl, clpc := 0, 0 //color layer, color loop count
+	//colorLayer := 0
+	//multiplier := float64(framerate) * 1.0 // chagne to 0.8
 	for !win.Closed() {
 		win.Clear(colornames.Antiquewhite)
 
 		if win.JustPressed(pixelgl.MouseButtonLeft) {
-			simmer = true
+			simmer = !simmer
 		}
 
 		if simmer {
-			if cl < len(cells) {
-				updateColors(uint64(cl), uint64(clpc))
-				//TODO this here is whats most likely broken check that you area actually updating the colors correctly
-				clpc++
-				if clpc == 120 {
-					clpc = 0
-					cl++
+			if cells[len(cells)-1][0].blend < 10 {
+				for i := 0; i < len(cells); i++ {
+					updateColors(uint64(i))
+					if cells[i][0].blend-1 == 0 {
+						break
+					}
+					// begin looping through the rows for cells
+					// if you run into a blend == 0 then update the row and break into the next loop
+					// loop through until the blend is 0 then adjust the color then break out to start the next iteration
 				}
 			}
+			// TODO fix so that the multiplier if over the frame rate the simulation starts updating multiple rows at once
 
-			for i := range cells {
-				for j := range cells[i] {
-					cells[i][j].obj.Draw(win)
-				}
-			}
+			// TODO add inital bounds checks lock out input untill the simulation has exponentially rendered all of the availiable cells within a starting area
+			// TODO add zoom and pan ability for the user
 		}
+
+		imd.Draw(win)
 
 		win.Update()
 		ticker.Wait()
@@ -80,6 +86,8 @@ func initWindow() {
 	}
 
 	win.SetComposeMethod(pixel.ComposeIn)
+	imd = imdraw.New(nil)
+	ticker = pixelutils.NewTicker(framerate)
 }
 
 func loadCells(history bool) {
@@ -93,40 +101,58 @@ func loadCells(history bool) {
 	if history {
 		for i := range data {
 			for j := range data[i] {
-				cells[i][j].square = pixel.R(win.Bounds().Size().X-float64((len(data[i])-j)*10), win.Bounds().Size().Y-20-(float64(i*10)),
-					win.Bounds().Size().X-float64(((len(data[i])-j)*10)+10), win.Bounds().Size().Y-20-(float64(i*10))+10)
-				cells[i][j].obj = imdraw.New(nil)
 				if data[i][j] == 1 {
-					cells[i][j].obj.Color = black
+					cells[i][j].square = pixel.R(win.Bounds().Size().X-float64((len(data[i])-j)*3), win.Bounds().Size().Y-20-(float64(i*3)),
+						win.Bounds().Size().X-float64(((len(data[i])-j)*3)+3), win.Bounds().Size().Y-20-(float64(i*3))+3)
+					imd.Color = white
 					cells[i][j].alive = true
-					cells[i][j].obj.Push(cells[i][j].square.Min, cells[i][j].square.Max)
-					cells[i][j].obj.Rectangle(0)
-				} else {
-					cells[i][j].obj.Color = white
-					cells[i][j].obj.Push(cells[i][j].square.Min, cells[i][j].square.Max)
-					cells[i][j].obj.Rectangle(0)
+					cells[i][j].blend = 0
+					imd.Push(cells[i][j].square.Min, cells[i][j].square.Max)
+					imd.Rectangle(0)
 				}
 			}
 		}
 	} else {
 
 	}
+	for i := range cells {
+		cells[i] = removeDead(cells[i])
+	}
 }
 
-func updateColors(layer uint64, iteration uint64) {
-	//NOTE iterations start at 0
+func updateColors(layer uint64) {
 	for i := range cells[layer] {
-		if cells[layer][i].alive {
-			cells[layer][i].obj.Color = white.BlendRgb(black, float64(iteration/199))
+		if cells[layer][i].blend < 10 {
+			imd.Color = white.BlendRgb(black, cells[layer][i].blend/10)
+			imd.Push(cells[layer][i].square.Min, cells[layer][i].square.Max)
+			imd.Rectangle(0)
+			cells[layer][i].blend++
 		}
 	}
-	// (250,235,215)
-	// for all cells that are alive
-	// the degree should reduce the colors to zero in a quarter of the framerate iterations
-	// it should not begin the next row until the previous has been completed
-
 }
 
 func resizeCells(degree float64) {
+	// cells by constant amount
 
+	// you cant scale with floats due to errors
+	// 1 = scale 10%
+	// 11 = scale 110%
+}
+
+func removeDead(objs []cell) []cell {
+	count := 0
+	for i := range objs {
+		if objs[i].alive {
+			count++
+		}
+	}
+	temp := make([]cell, count)
+	count = 0
+	for i := range objs {
+		if objs[i].alive {
+			temp[count] = objs[i]
+			count++
+		}
+	}
+	return temp
 }
