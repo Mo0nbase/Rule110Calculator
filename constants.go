@@ -14,8 +14,8 @@ func r110Default() []uint64 {
 func randSt(length int) []uint64 {
 	var a = make([]uint64, length)
 	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < 5; i++ {
-		a[i] = uint64(rand.Intn(100))
+	for i := 0; i < length; i++ {
+		a[i] = uint64(rand.Intn(2))
 	}
 	return a
 }

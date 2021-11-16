@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/dusk125/pixelutils"
 	"github.com/faiface/pixel"
-	"github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
 	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/image/colornames"
@@ -11,12 +10,13 @@ import (
 	"image/png"
 	_ "image/png"
 	"log"
+	"math"
 	_ "math"
 	"os"
+	"time"
 )
 
 var win *pixelgl.Window
-var imd *imdraw.IMDraw
 var ticker *pixelutils.Ticker
 var framerate = int64(120)
 
@@ -27,15 +27,51 @@ var cells [][]uint64
 
 func run() {
 	initWindow()
-	createImage(true, 10)
+	createImage(true, 5)
+	pic, _ := loadPicture("image.png")
+	sprite := pixel.NewSprite(pic, pic.Bounds())
 
+	var (
+		camPos       = pixel.ZV
+		camSpeed     = 800.0
+		camZoom      = 1.0
+		camZoomSpeed = 1.2
+	)
+
+	last := time.Now()
 	for !win.Closed() {
+		dt := time.Since(last).Seconds()
+		last = time.Now()
+
+		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
+		win.SetMatrix(cam)
+
+		// if the left mouse is pressed check if its over the portion of the window dedicated to settings
+		// use win . just pressed
+
+		if win.Pressed(pixelgl.MouseButtonLeft) {
+			camPos = camPos.Sub(win.MousePosition().Sub(win.MousePreviousPosition()))
+		}
+		if win.Pressed(pixelgl.KeyLeft) {
+			camPos.X -= camSpeed * dt
+		}
+		if win.Pressed(pixelgl.KeyRight) {
+			camPos.X += camSpeed * dt
+		}
+		if win.Pressed(pixelgl.KeyDown) {
+			camPos.Y -= camSpeed * dt
+		}
+		if win.Pressed(pixelgl.KeyUp) {
+			camPos.Y += camSpeed * dt
+		}
+		camZoom *= math.Pow(camZoomSpeed, win.MouseScroll().Y)
+
 		win.Clear(colornames.Antiquewhite)
+		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Max.Sub(pic.Bounds().Center())))
 
 		// TODO add zoom and pan ability for the user
-		imd.Draw(win)
 		win.Update()
-		ticker.Wait()
+		//ticker.Wait()
 	}
 }
 
@@ -58,7 +94,6 @@ func initWindow() {
 	}
 
 	win.SetComposeMethod(pixel.ComposeIn)
-	imd = imdraw.New(nil)
 	ticker = pixelutils.NewTicker(framerate)
 }
 
@@ -107,8 +142,8 @@ func loadPicture(path string) (pixel.Picture, error) {
 	return pixel.PictureDataFromImage(img), nil
 }
 
-func translateCells(vector pixel.Vec) {
-
+func getTranslationMatrix(vector pixel.Vec) pixel.Matrix {
+	return pixel.IM.Moved(vector)
 }
 
 func resizeCells(degree float64) {
