@@ -1,8 +1,10 @@
 # github.com/dusk125/pixelui v0.1.0
 ## explicit; go 1.16
+github.com/dusk125/pixelui
 # github.com/dusk125/pixelutils v1.0.0
 ## explicit; go 1.16
 github.com/dusk125/pixelutils
+github.com/dusk125/pixelutils/packer
 # github.com/faiface/glhf v0.0.0-20181018222622-82a6317ac380
 ## explicit
 github.com/faiface/glhf
@@ -27,6 +29,7 @@ github.com/go-gl/glfw/v3.3/glfw
 github.com/go-gl/mathgl/mgl32
 # github.com/inkyblackness/imgui-go v1.12.0
 ## explicit; go 1.13
+github.com/inkyblackness/imgui-go
 # github.com/lucasb-eyer/go-colorful v1.2.0
 ## explicit; go 1.12
 github.com/lucasb-eyer/go-colorful

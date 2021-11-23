@@ -107,7 +107,7 @@ func decompress(history bool) [][]uint64 {
 		for i := 0; i < len(sim); i++ {
 			for j := 0; j < 64; j++ {
 				for k := 0; k < len(sim[i]); k++ {
-					out[i][lpc] = uint64(getBit(sim[i][k], uint64(j)))
+					out[i][lpc] = uint64(getBit(sim[i][k], j))
 					lpc++
 				}
 			}
@@ -123,7 +123,7 @@ func decompress(history bool) [][]uint64 {
 			lpc := 0
 			for j := 0; j < 64; j++ {
 				for k := 0; k < len(sim[0]); k++ {
-					out[0][lpc] = uint64(getBit(sim[0][k], uint64(j)))
+					out[0][lpc] = uint64(getBit(sim[0][k], j))
 					lpc++
 				}
 			}
@@ -131,7 +131,7 @@ func decompress(history bool) [][]uint64 {
 			lpc := 0
 			for j := 0; j < 64; j++ {
 				for k := 0; k < len(sim[1]); k++ {
-					out[1][lpc] = uint64(getBit(sim[1][k], uint64(j)))
+					out[1][lpc] = uint64(getBit(sim[1][k], j))
 					lpc++
 				}
 			}
@@ -144,7 +144,7 @@ func countLeadingZeros(layer int) int {
 	zeros := 0
 	for j := 0; j < 64; j++ {
 		for k := 0; k < len(sim[layer]); k++ {
-			if getBit(sim[layer][k], uint64(j)) == 1 {
+			if getBit(sim[layer][k], j) == 1 {
 				return zeros
 			}
 			zeros++
@@ -206,7 +206,7 @@ func displayFancy() {
 	for i := 0; i < len(sim); i++ {
 		for j := 0; j < 64; j++ {
 			for k := 0; k < len(sim[i]); k++ {
-				if getBit(sim[i][k], uint64(j)) == 0 {
+				if getBit(sim[i][k], j) == 0 {
 					fmt.Print("□")
 				} else {
 					fmt.Print("■")
@@ -229,7 +229,7 @@ func clearBit(n uint64, pos uint64) uint64 {
 	return n
 }
 
-func getBit(n uint64, pos uint64) int {
+func getBit(n uint64, pos int) int {
 	val := n & (1 << pos)
 	if val > 0 {
 		return 1

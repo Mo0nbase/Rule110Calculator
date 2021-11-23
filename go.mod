@@ -3,6 +3,7 @@ module Rule110Calculator
 go 1.17
 
 require (
+	github.com/dusk125/pixelui v0.1.0
 	github.com/dusk125/pixelutils v1.0.0
 	github.com/faiface/pixel v0.11.0-beta
 	github.com/lucasb-eyer/go-colorful v1.2.0
@@ -11,7 +12,6 @@ require (
 )
 
 require (
-	github.com/dusk125/pixelui v0.1.0 // indirect
 	github.com/faiface/glhf v0.0.0-20181018222622-82a6317ac380 // indirect
 	github.com/faiface/mainthread v0.0.0-20171120011319-8b78f0a41ae3 // indirect
 	github.com/gizak/termui/v3 v3.1.0 // indirect

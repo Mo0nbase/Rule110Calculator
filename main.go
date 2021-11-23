@@ -12,7 +12,7 @@ func main() {
 	//performanceTest(4, 1000000, false)
 	//readFromFile()
 	//displayFancy()
-	simulate(true, 300, randSt(600)) //180
+	simulate(true, 2048, randSt(2046)) // 2 below max
 	pixelgl.Run(run)
 
 	//arr := decompress(false)
