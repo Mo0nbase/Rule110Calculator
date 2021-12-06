@@ -12,10 +12,25 @@ func main() {
 	//performanceTest(4, 1000000, false)
 	//readFromFile()
 	//displayFancy()
-	simulate(true, 2048, randSt(2046)) // 2 below max
+	//TODO maximum number of evolutions is 4444 (sometimes)
+	simulate(true, 10, b64Test()) // 2 below max
+	//fmt.Print("Area: ")
+	//fmt.Println(calculateArea(3500, 3500, 2))
 	pixelgl.Run(run)
+	//importSpriteMatrix()
+}
 
-	//arr := decompress(false)
+func calculateArea(length int, evolutions int, pSize int) int {
+	return calculateWidth(length, evolutions, pSize) * calculateHeight(evolutions, pSize)
+}
+
+func calculateWidth(length int, evolutions int, pSize int) int {
+	base := length + evolutions + 1
+	return (base + (64 - (base % 64))) * pSize
+}
+
+func calculateHeight(evolutions int, pSize int) int {
+	return (evolutions + 1) * pSize
 }
 
 func performanceTest(repetitions int, evolutions int, history bool) {
