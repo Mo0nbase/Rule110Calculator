@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"sync"
 
-	"encoding/csv"
 	"github.com/dusk125/pixelui"
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
@@ -138,34 +137,14 @@ func createImages(history bool, pSize int) {
 	var wg sync.WaitGroup
 	wg.Add(len(sim))
 	if history {
-		csvFile, _ := os.Create("multithreading.csv")
-		csvFile1, _ := os.Create("single-thread.csv")
-
-		writer := csv.NewWriter(csvFile)
-		writer1 := csv.NewWriter(csvFile1)
-
-		for i := range sim {
-			renderRowNormal(img, i, pSize) // TODO make multithreaded again
-		}
-		for i := 0; i < len(img.Pix)/4; i++ {
-			_ = writer1.Write([]string{strconv.Itoa(int(img.Pix[i*4])), strconv.Itoa(int(img.Pix[(i*4)+1])), strconv.Itoa(int(img.Pix[(i*4)+2])), strconv.Itoa(int(img.Pix[(i*4)+3]))})
-		}
 		img = image.NewRGBA(image.Rectangle{Min: upLeft, Max: lowRight})
 		for i := range sim {
-			go renderRow(&wg, img, i, pSize) // TODO make multithreaded again
+			go renderRow(&wg, img, i, pSize)
 		}
-		wg.Wait()
-		for i := 0; i < len(img.Pix)/4; i++ {
-			_ = writer.Write([]string{strconv.Itoa(int(img.Pix[i*4])), strconv.Itoa(int(img.Pix[(i*4)+1])), strconv.Itoa(int(img.Pix[(i*4)+2])), strconv.Itoa(int(img.Pix[(i*4)+3]))})
-		}
-		writer.Flush()
-		writer1.Flush()
-		csvFile.Close()
-		csvFile1.Close()
 	} else {
 		// TODO add non history version
 	}
-	//wg.Wait()
+	wg.Wait()
 
 	fmt.Println("Finished passing to threads")
 	_ = os.MkdirAll("export/chunks", os.ModePerm)
@@ -216,8 +195,8 @@ func renderRow(wg *sync.WaitGroup, img *image.RGBA, i int, pSize int) {
 	var lpc = 0
 	for j := 0; j < 64; j++ {
 		for k := range sim[i] {
-			for l := lpc * pSize; l <= (lpc*pSize)+pSize; l++ {
-				for m := i * pSize; m <= (i*pSize)+pSize; m++ {
+			for l := lpc * pSize; l < (lpc*pSize)+pSize; l++ {
+				for m := i * pSize; m < (i*pSize)+pSize; m++ {
 					if getBit(sim[i][k], j) == 1 {
 						img.Set(l, m, black)
 					} else {
