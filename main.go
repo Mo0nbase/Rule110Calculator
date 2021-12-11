@@ -12,9 +12,7 @@ func main() {
 	//performanceTest(4, 1000000, false)
 	//readFromFile()
 	//displayFancy()
-	//TODO maximum number of evolutions is 4444 (sometimes)
-	simulate(true, 10, b64Test()) // 2 below max
-	//fmt.Print("Area: ")
+	//simulate(true, 3500, randSt(3500)) // 2 below max // 7000
 	//fmt.Println(calculateArea(3500, 3500, 2))
 	pixelgl.Run(run)
 	//importSpriteMatrix()

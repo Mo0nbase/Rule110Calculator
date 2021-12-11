@@ -156,14 +156,14 @@ func countLeadingZeros(layer int) int {
 func readTape() {
 }
 
-func writeToFile() {
-	file, err := os.Create("data.bin")
+func writeToFile(path string, obj interface{}) {
+	file, err := os.Create(path)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	enc := gob.NewEncoder(file)
-	if err = enc.Encode(sim); err != nil {
+	if err = enc.Encode(&obj); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -177,18 +177,18 @@ func writeToFile() {
 	}
 }
 
-func readFromFile() {
-	file, err := os.Open("data.bin")
+func readFromFile(path string, assign interface{}) interface{} {
+	file, err := os.Open(path)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return nil
 	}
 	dec := gob.NewDecoder(file)
-	if err = dec.Decode(&sim); err != nil {
+	if err = dec.Decode(&assign); err != nil {
 		fmt.Println(err)
 	}
-
 	fmt.Println("Structure read from file successfully")
+	return assign
 }
 
 // REMEMBER: BINARY NUMBERS READ RIGHT TO LEFT!!!
