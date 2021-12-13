@@ -6,6 +6,7 @@ import (
 	"github.com/dusk125/pixelutils"
 	"github.com/inkyblackness/imgui-go"
 	_ "image/png"
+	"runtime"
 	"strconv"
 	"sync"
 
@@ -34,7 +35,7 @@ var black, _ = colorful.MakeColor(colornames.Black)
 
 var generationProgress = float32(0.0)
 var threadProgress = float32(0.0)
-var totalProgress = float32(0.0)
+var routines = 0.0
 
 func run() {
 	initWindow()
@@ -51,7 +52,6 @@ func run() {
 	defer ui.Destroy()
 
 	ui.AddTTFFont("resources/03b04.ttf", 16)
-	ui.AddTTFFont("resources/Roboto-Medium.ttf", 16)
 
 	var sprites [][]pixel.Sprite
 
@@ -62,7 +62,6 @@ func run() {
 
 		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
 		win.SetMatrix(cam)
-		//_, framerate := ticker.Tick()
 
 		if win.JustReleased(pixelgl.KeyEscape) {
 			win.SetClosed(true)
@@ -85,10 +84,9 @@ func run() {
 		if !imgui.CurrentIO().WantCaptureMouse() {
 			camZoom *= math.Pow(camZoomSpeed, win.MouseScroll().Y)
 		}
-
 		if win.Pressed(pixelgl.KeyP) {
 			//simulate(true, 57800, simpleCTS())
-			simulate(true, 20000, randStart(3500))
+			simulate(true, 3500, randStart(3500))
 		}
 		if win.Pressed(pixelgl.KeyO) {
 			onlyOnce.Do(func() { go createImages(true, 2) })
@@ -120,16 +118,18 @@ func run() {
 }
 
 func drawUI() {
-	imgui.BeginV("Rule 110 Simulator", nil, 0b00000010) //0b00000110 //noResize, noMove
+	imgui.BeginV("Rule 110 Simulator", nil, 0b00000000) //0b00000110 //noResize, noMove
 
 	imgui.Style.SetColor(imgui.CurrentStyle(), imgui.StyleColorWindowBg, pixelui.ColorA(119, 134, 127, 245))
 	imgui.Style.SetColor(imgui.CurrentStyle(), imgui.StyleColorHeader, pixelui.ColorA(130, 79, 80, 220))
 	imgui.Style.SetColor(imgui.CurrentStyle(), imgui.StyleColorHeaderHovered, pixelui.ColorA(130, 94, 95, 215))
 	imgui.Style.SetColor(imgui.CurrentStyle(), imgui.StyleColorPlotHistogram, pixelui.ColorA(130, 79, 80, 220))
 
-	imgui.ProgressBarV(generationProgress, imgui.Vec2{X: 375, Y: 22}, "Generation")
-	imgui.ProgressBarV(threadProgress, imgui.Vec2{X: 375, Y: 22}, "Threads")
-	imgui.ProgressBarV(totalProgress, imgui.Vec2{X: 375, Y: 22}, "Progress")
+	_, framerate := ticker.Tick()
+	imgui.Text(fmt.Sprintf("%.2f", framerate))
+	imgui.ProgressBarV(generationProgress/float32(len(sim)), imgui.Vec2{X: 375, Y: 22}, "Generation")
+	imgui.ProgressBarV(threadProgress/float32(len(sim)), imgui.Vec2{X: 375, Y: 22}, "Threads")
+	imgui.ProgressBarV(float32(routines/float64(runtime.NumGoroutine())), imgui.Vec2{X: 375, Y: 22}, "Progress")
 
 	imgui.End()
 }
@@ -166,14 +166,14 @@ func createImages(history bool, pSize int) {
 	img := image.NewRGBA(image.Rectangle{Min: upLeft, Max: lowRight})
 
 	threadProgress = 0
-	totalProgress = 0
 	var wg sync.WaitGroup
+	routines = float64(runtime.NumGoroutine() + len(sim))
 	wg.Add(len(sim))
 	if history {
 		img = image.NewRGBA(image.Rectangle{Min: upLeft, Max: lowRight})
 		for i := range sim {
 			go renderRow(&wg, img, i, pSize)
-			threadProgress += 1.0 / float32(len(sim))
+			threadProgress++
 		}
 	} else {
 		// TODO add non history version

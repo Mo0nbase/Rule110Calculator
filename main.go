@@ -9,13 +9,12 @@ import (
 )
 
 func main() {
+	pixelgl.Run(run)
 	//performanceTest(4, 1000000, false)
 	//readFromFile()
 	//displayFancy()
 	//simulate(true, 3500, randSt(3500)) // 2 below max // 7000
 	//fmt.Println(calculateArea(3500, 3500, 2))
-	pixelgl.Run(run)
-	//importSpriteMatrix()
 }
 
 func calculateArea(length int, evolutions int, pSize int) int {

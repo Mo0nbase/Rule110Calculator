@@ -59,6 +59,7 @@ func initialize(initial []uint64, evolutions int, history bool) {
 }
 
 func simulate(history bool, evolutions int, conditions []uint64) time.Duration {
+	generationProgress = 0
 	if conditions == nil {
 		fmt.Println("Program uninitialized using default...")
 		fmt.Println()
@@ -83,6 +84,7 @@ func historicallyAware(evolutions int) {
 			sim[i][j] = ((^(sim[i-1][j-1])) & sim[i-1][j]) | (sim[i-1][j] ^ sim[i-1][j+1])
 		}
 		sim[i][len(sim[i])-1] = ((^(sim[i-1][len(sim[i])-2])) & sim[i-1][len(sim[i])-1]) | (sim[i-1][len(sim[i])-1] ^ sim[i-1][0]>>1)
+		generationProgress++
 	}
 }
 
@@ -93,6 +95,7 @@ func historicallyUnaware(evolutions int) {
 			sim[k^1][j] = ((^(sim[k][j-1])) & sim[k][j]) | (sim[k][j] ^ sim[k][j+1])
 		}
 		sim[k^1][len(sim[0])-1] = ((^(sim[k][len(sim[0])-2])) & sim[k][len(sim[0])-1]) | (sim[k][len(sim[0])-1] ^ sim[k][0]>>1)
+		generationProgress++
 	}
 }
 
