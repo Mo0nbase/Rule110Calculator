@@ -1,12 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"github.com/dusk125/pixelutils"
 	"github.com/inkyblackness/imgui-go"
 	_ "image/png"
-	"runtime"
+	_ "runtime"
 	"strconv"
 	"sync"
 
@@ -24,8 +25,6 @@ import (
 	"time"
 )
 
-var onlyOnce sync.Once
-
 var win *pixelgl.Window
 var ticker *pixelutils.Ticker
 var framerateTarget = int64(120)
@@ -33,13 +32,28 @@ var framerateTarget = int64(120)
 var white, _ = colorful.MakeColor(colornames.Antiquewhite)
 var black, _ = colorful.MakeColor(colornames.Black)
 
+var sprites [][]pixel.Sprite
+
+var logBuf bytes.Buffer
+
 var generationProgress = float32(0.0)
 var threadProgress = float32(0.0)
-var routines = 0.0
+var totalProgress = float32(0.0)
+var gridSize = float32(0.0)
+
+var exporting = false
+var imported = -1 // if -1 then its not being imported and is not in memory, if 0 then its being imported, if its 1 then its imported
+
+var simType = 0
+var evolutions = int32(256)
+var history = true
+var path = ""
+var leftPart = true
+
+var randomInitialLength = int32(256)
 
 func run() {
 	initWindow()
-	//pic, _ := loadPicture("export/image.png")
 
 	var (
 		camPos       = pixel.ZV
@@ -52,8 +66,7 @@ func run() {
 	defer ui.Destroy()
 
 	ui.AddTTFFont("resources/03b04.ttf", 16)
-
-	var sprites [][]pixel.Sprite
+	gob.Register([][]string{})
 
 	last := time.Now()
 	for !win.Closed() {
@@ -63,37 +76,29 @@ func run() {
 		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
 		win.SetMatrix(cam)
 
+		// Quit
 		if win.JustReleased(pixelgl.KeyEscape) {
 			win.SetClosed(true)
 		}
+
+		// Controls
 		if !imgui.CurrentIO().WantCaptureMouse() && win.Pressed(pixelgl.MouseButtonLeft) {
 			camPos = camPos.Sub(win.MousePosition().Sub(win.MousePreviousPosition()).Scaled(1 / camZoom))
 		}
 		if win.Pressed(pixelgl.KeyLeft) {
-			camPos.X -= camSpeed * dt
+			camPos.X -= camSpeed * dt * 1 / camZoom
 		}
 		if win.Pressed(pixelgl.KeyRight) {
-			camPos.X += camSpeed * dt
+			camPos.X += camSpeed * dt * 1 / camZoom
 		}
 		if win.Pressed(pixelgl.KeyDown) {
-			camPos.Y -= camSpeed * dt
+			camPos.Y -= camSpeed * dt * 1 / camZoom
 		}
 		if win.Pressed(pixelgl.KeyUp) {
-			camPos.Y += camSpeed * dt
+			camPos.Y += camSpeed * dt * 1 / camZoom
 		}
 		if !imgui.CurrentIO().WantCaptureMouse() {
 			camZoom *= math.Pow(camZoomSpeed, win.MouseScroll().Y)
-		}
-		if win.Pressed(pixelgl.KeyP) {
-			//simulate(true, 57800, simpleCTS())
-			simulate(true, 3500, randStart(3500))
-		}
-		if win.Pressed(pixelgl.KeyO) {
-			onlyOnce.Do(func() { go createImages(true, 2) })
-		}
-		if win.Pressed(pixelgl.KeyI) {
-			gob.Register([][]string{})
-			sprites = importSpriteMatrix()
 		}
 
 		ui.NewFrame()
@@ -102,12 +107,11 @@ func run() {
 		//TODO imgui_demo.cpp
 		// TODO import a batch of all the chunks to use for the translation matrix
 
-		drawUI()
-
 		win.Clear(colornames.Antiquewhite)
+		drawUI()
+		drawSpriteMatrix()
 		//sprite.Draw(win, pixel.IM.Moved(win.Bounds().Max.ScaledXY(pixel.V(0.5, 0.5)).Sub(sprite.Frame().Center())))
 
-		drawSpriteMatrix(sprites)
 		// TODO add checking to not call the splitter function if under maximum size
 
 		ui.Draw(win)
@@ -126,10 +130,102 @@ func drawUI() {
 	imgui.Style.SetColor(imgui.CurrentStyle(), imgui.StyleColorPlotHistogram, pixelui.ColorA(130, 79, 80, 220))
 
 	_, framerate := ticker.Tick()
+	imgui.Spacing()
+	imgui.ProgressBarV(generationProgress/float32(len(sim)), imgui.Vec2{X: 375, Y: 22}, strconv.Itoa(int(generationProgress))+"/"+strconv.Itoa(len(sim)))
+	imgui.SameLine()
+	imgui.Text("Generation")
+	imgui.SameLine()
+	imgui.Text("       Rule 110 Calculator")
+	imgui.ProgressBarV(threadProgress/float32(len(sim)), imgui.Vec2{X: 375, Y: 22}, strconv.Itoa(int(threadProgress))+"/"+strconv.Itoa(len(sim)))
+	imgui.SameLine()
+	imgui.Text("Threads")
+	imgui.SameLine()
+	imgui.Text("           By:Julian Carrier")
+	imgui.ProgressBarV(totalProgress/gridSize, imgui.Vec2{X: 375, Y: 22}, strconv.Itoa(int(totalProgress))+"/"+strconv.Itoa(int(gridSize)))
+	imgui.SameLine()
+	imgui.Text("Total Progress")
+	imgui.SameLine()
+	imgui.Text("      FPS:")
+	imgui.SameLine()
 	imgui.Text(fmt.Sprintf("%.2f", framerate))
-	imgui.ProgressBarV(generationProgress/float32(len(sim)), imgui.Vec2{X: 375, Y: 22}, "Generation")
-	imgui.ProgressBarV(threadProgress/float32(len(sim)), imgui.Vec2{X: 375, Y: 22}, "Threads")
-	imgui.ProgressBarV(float32(routines/float64(runtime.NumGoroutine())), imgui.Vec2{X: 375, Y: 22}, "Progress")
+	imgui.Spacing()
+	imgui.Separator()
+	imgui.Spacing()
+
+	if imgui.Button("Generate") {
+		addLog("[Activity]:" + time.Now().Local().String() + ": Starting Generation... \n")
+		switch simType {
+		case 0:
+			simulate(history, int(evolutions), randStart(int(randomInitialLength))) // Random
+		case 1:
+			simulate(history, int(evolutions), r110Default()) // Template Start
+		case 2:
+			simulate(history, int(evolutions), simpleCTS()) // CTS
+			// TODO create function here to define cts configuration
+		case 3:
+			simulate(history, int(evolutions), r110Default())
+			// TODO change to the input of the user
+		}
+		addLog("[Activity]:" + time.Now().Local().String() + ": Generation Complete... \n")
+	}
+	imgui.SameLine()
+	if imgui.Checkbox("History", &history) {
+
+	}
+	imgui.SameLine()
+	imgui.InputInt("Evolutions", &evolutions)
+	if imgui.Button("Export") && exporting == false {
+		addLog("[Activity]:" + time.Now().Local().String() + ": Starting Image Export... \n")
+		exporting = true
+		go createImages(true, 2)
+		path = "/export/chunks"
+	}
+	imgui.SameLine()
+	if imgui.Button("Import") && (imported == -1 || imported == 1) && exporting == false {
+		addLog("[Activity]:" + time.Now().Local().String() + ": Importing Images... \n")
+		imported = 0
+		go importSpriteMatrix()
+	}
+	imgui.SameLine()
+	if imgui.Checkbox("Left", &leftPart) { // TODO change to not include left part of simulation if unchecked
+
+	}
+	imgui.SameLine()
+	imgui.InputText("Path", &path)
+
+	imgui.Spacing()
+
+	imgui.RadioButtonInt("Random", &simType, 0)
+	imgui.SameLine()
+	imgui.RadioButtonInt("Template", &simType, 1)
+	imgui.SameLine()
+	imgui.RadioButtonInt("CTS", &simType, 2)
+	imgui.SameLine()
+	imgui.RadioButtonInt("Custom", &simType, 3)
+	switch simType {
+	case 0:
+		imgui.InputInt("Initial Length", &randomInitialLength)
+	case 2:
+		imgui.Selectable("test")
+	case 3:
+		imgui.Selectable("test1")
+	}
+
+	if imgui.CollapsingHeader("Logging") {
+		if imgui.Button("Clear") {
+			logBuf.Reset()
+		}
+		imgui.SameLine()
+		if imgui.Button("Copy") {
+			win.SetClipboard(logBuf.String())
+		}
+		imgui.Separator()
+		imgui.BeginChildV("scrolling", imgui.Vec2{0, 200}, true, imgui.WindowFlagsHorizontalScrollbar)
+		imgui.Text(logBuf.String())
+		imgui.EndChild()
+	}
+	//imgui.PushStyleVarVec2(imgui.StyleVarItemSpacing, imgui.Vec2{0,0})
+	////logBuf.ReadString(b'\n')
 
 	imgui.End()
 }
@@ -156,8 +252,17 @@ func initWindow() {
 	ticker = pixelutils.NewTicker(framerateTarget)
 }
 
+func addLog(str string) {
+	fmt.Print(str)
+	logBuf.WriteString(str)
+}
+
 func createImages(history bool, pSize int) {
-	fmt.Println("This is bad if it happens more than once!")
+	if sim == nil || len(sim) == 0 {
+		addLog("[Error]:" + time.Now().Local().String() + ": No Simulation to Export (Nothing in Memory)... \n")
+		exporting = false
+		return
+	}
 	width := len(sim[0]) * pSize * 64
 	height := len(sim) * pSize
 
@@ -165,12 +270,14 @@ func createImages(history bool, pSize int) {
 	lowRight := image.Point{X: width, Y: height}
 	img := image.NewRGBA(image.Rectangle{Min: upLeft, Max: lowRight})
 
-	threadProgress = 0
+	threadProgress = 0.0
+	totalProgress = 0.0
+	gridSize = 0.0
 	var wg sync.WaitGroup
-	routines = float64(runtime.NumGoroutine() + len(sim))
 	wg.Add(len(sim))
 	if history {
 		img = image.NewRGBA(image.Rectangle{Min: upLeft, Max: lowRight})
+		addLog("[Activity]:" + time.Now().Local().String() + ": Passing Layers to Threads... \n")
 		for i := range sim {
 			go renderRow(&wg, img, i, pSize)
 			threadProgress++
@@ -180,48 +287,55 @@ func createImages(history bool, pSize int) {
 	}
 	wg.Wait()
 
-	fmt.Println("Finished passing to threads")
+	addLog("[Activity]:" + time.Now().Local().String() + ": Threads Working... \n")
 
-	//_, err := os.OpenFile("export/chunks/backup", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
-	//if err != nil {
-	//	_ = os.RemoveAll("export/chunks/backup")
-	//}
-	//dir, err := os.ReadDir("export/chunks")
-	//if err != nil {
-	//	return
-	//}
-	//for entry := range dir {
-	//	os.WriteFile(os.ReadFile(string(entry)))
-	//}
-
-	_ = os.MkdirAll("export/chunks", os.ModePerm)
+	addLog("[Activity]:" + time.Now().Local().String() + ": Creating Files... \n")
+	_ = os.RemoveAll("export/chunks/backup")
+	_ = os.MkdirAll("export/chunks/backup", os.ModePerm)
+	dir, _ := os.ReadDir("export/chunks")
+	for entry := range dir {
+		_ = os.Rename("export/chunks/"+dir[entry].Name(), "export/chunks/backup/"+dir[entry].Name())
+	}
 	f, _ := os.Create("export/image.png")
-	_ = png.Encode(f, img)
+	addLog("[Activity]:" + time.Now().Local().String() + ": Files Created Successfully... \n")
 
 	grid := gridSplit(img.Rect)
-	exportMatrix := make([][]string, len(grid))
-	for i := range exportMatrix {
-		exportMatrix[i] = make([]string, len(grid[0]))
-	}
+	addLog("[Activity]:" + time.Now().Local().String() + ": Starting Image Export... \n")
+	_ = png.Encode(f, img)
+	addLog("[Activity]:" + time.Now().Local().String() + ": Initial Export Done... \n")
+
 	if grid == nil {
-		fmt.Println("Image is already under maximum texture size")
+		addLog("[Activity]:" + time.Now().Local().String() + ": Image is already under maximum texture size... \n")
 	} else {
+		gridSize = float32(len(grid)*len(grid[0])) + 1
+		totalProgress++
+
+		exportMatrix := make([][]string, len(grid))
+		addLog("[Activity]:" + time.Now().Local().String() + ": Splitting Image... \n")
+		for i := range exportMatrix {
+			exportMatrix[i] = make([]string, len(grid[0]))
+		}
+
+		addLog("[Activity]:" + time.Now().Local().String() + ": Exporting Sub Images... \n")
 		for i := range grid {
 			for j := range grid[i] {
 				name := strconv.Itoa(i) + "_" + strconv.Itoa(j)
 				exportMatrix[i][j] = name + ".png"
 				f, _ = os.Create("export/chunks/" + name + ".png")
 				_ = png.Encode(f, img.SubImage(grid[i][j]))
+				totalProgress++
 			}
 		}
+
+		addLog("[Activity]:" + time.Now().Local().String() + ": Exporting Configuration... \n")
+		writeToFile("export/chunks/matrix.bin", exportMatrix)
 	}
-	gob.Register([][]string{})
-	writeToFile("export/chunks/matrix.bin", exportMatrix)
-	fmt.Println("Finished Generation")
+	addLog("[Activity]:" + time.Now().Local().String() + ": Image Generation and Export Complete... \n")
+	exporting = false
 }
 
-func drawSpriteMatrix(sprites [][]pixel.Sprite) {
-	if sprites != nil {
+func drawSpriteMatrix() {
+	if sprites != nil && imported == 1 {
 		delta := pixel.IM.Moved(win.Bounds().Max.ScaledXY(pixel.V(0.5, 0.5)).Sub(sprites[0][len(sprites[0])-1].Frame().Center()))
 		sprites[0][len(sprites[0])-1].Draw(win, delta)
 		DX, DY := -sprites[0][len(sprites[0])-1].Frame().Max.X, -sprites[0][len(sprites[0])-1].Frame().Max.Y
@@ -286,12 +400,8 @@ func loadPicture(path string) (pixel.Picture, error) {
 	return pixel.PictureDataFromImage(img), nil
 }
 
-func getTranslationMatrix(vector pixel.Vec) pixel.Matrix {
-	return pixel.IM.Moved(vector)
-}
-
-func importSpriteMatrix() [][]pixel.Sprite {
-	var sprites [][]pixel.Sprite
+func importSpriteMatrix() {
+	sprites = nil
 	var index [][]string
 	index = readFromFile("export/chunks/matrix.bin", index).([][]string)
 	for i := range index {
@@ -299,14 +409,15 @@ func importSpriteMatrix() [][]pixel.Sprite {
 		for j := range index[i] {
 			img, err := loadPicture("export/chunks/" + index[i][j])
 			if err != nil {
-				fmt.Println("Could not open chunk file! (It may not exist, you may not have exported anything, one or more pieces could be missing, must be in /export/chunks)")
-				return nil
+				addLog("[Error]:" + time.Now().Local().String() + ": Could not open chunk file! (It may not exist, you may not have exported anything, one or more pieces could be missing, must be in /export/chunks)... \n")
+				sprites = nil
 			}
 			sprites[i] = append(sprites[i], *pixel.NewSprite(img, img.Bounds()))
 		}
 	}
-	return sprites
-}
+	imported = 1
+	addLog("[Activity]:" + time.Now().Local().String() + ": Images Imported Successfully... \n")
+} // TODO add nessecary checks to make sure that the program just imports the image if no matrix was nessecary
 
 func gridSplit(r image.Rectangle) [][]image.Rectangle {
 	MAX := 8192
@@ -320,7 +431,6 @@ func gridSplit(r image.Rectangle) [][]image.Rectangle {
 }
 
 func getSubRectangles(rectangles [][]image.Rectangle, horizontal bool) [][]image.Rectangle {
-	fmt.Println("called") // TODO remove this when done testing
 	MAX := 8192
 	var temp [][]image.Rectangle
 	if horizontal {
