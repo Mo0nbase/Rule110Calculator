@@ -180,18 +180,22 @@ func writeToFile(path string, obj interface{}) {
 	}
 }
 
-func readFromFile(path string, assign interface{}) interface{} {
+func readFromFile(path string, assign interface{}) (interface{}, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 	dec := gob.NewDecoder(file)
 	if err = dec.Decode(&assign); err != nil {
-		fmt.Println(err)
+		return nil, err
+	} else if assign == nil {
+		fmt.Println("Structure read is nil...")
+		return assign, nil
+	} else {
+		fmt.Println(assign)
+		fmt.Println("Structure read from file successfully...")
 	}
-	fmt.Println("Structure read from file successfully")
-	return assign
+	return assign, nil
 }
 
 // REMEMBER: BINARY NUMBERS READ RIGHT TO LEFT!!!

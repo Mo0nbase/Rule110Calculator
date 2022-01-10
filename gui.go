@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"github.com/dusk125/pixelutils"
 	"github.com/inkyblackness/imgui-go"
@@ -65,7 +66,6 @@ func run() {
 	ui := pixelui.NewUI(win, 0)
 	defer ui.Destroy()
 
-	ui.AddTTFFont("resources/03b04.ttf", 16)
 	gob.Register([][]string{})
 
 	last := time.Now()
@@ -154,6 +154,7 @@ func drawUI() {
 
 	if imgui.Button("Generate") {
 		addLog("[Activity]:" + time.Now().Local().String() + ": Starting Generation... \n")
+		generationProgress = 0.0
 		switch simType {
 		case 0:
 			simulate(history, int(evolutions), randStart(int(randomInitialLength))) // Random
@@ -258,6 +259,10 @@ func addLog(str string) {
 }
 
 func createImages(history bool, pSize int) {
+	threadProgress = 0.0
+	totalProgress = 0.0
+	gridSize = 0.0
+
 	if sim == nil || len(sim) == 0 {
 		addLog("[Error]:" + time.Now().Local().String() + ": No Simulation to Export (Nothing in Memory)... \n")
 		exporting = false
@@ -270,9 +275,6 @@ func createImages(history bool, pSize int) {
 	lowRight := image.Point{X: width, Y: height}
 	img := image.NewRGBA(image.Rectangle{Min: upLeft, Max: lowRight})
 
-	threadProgress = 0.0
-	totalProgress = 0.0
-	gridSize = 0.0
 	var wg sync.WaitGroup
 	wg.Add(len(sim))
 	if history {
@@ -286,8 +288,6 @@ func createImages(history bool, pSize int) {
 		// TODO add non history version
 	}
 	wg.Wait()
-
-	addLog("[Activity]:" + time.Now().Local().String() + ": Threads Working... \n")
 
 	addLog("[Activity]:" + time.Now().Local().String() + ": Creating Files... \n")
 	_ = os.RemoveAll("export/chunks/backup")
@@ -306,6 +306,8 @@ func createImages(history bool, pSize int) {
 
 	if grid == nil {
 		addLog("[Activity]:" + time.Now().Local().String() + ": Image is already under maximum texture size... \n")
+		gridSize = 1
+		totalProgress = 1
 	} else {
 		gridSize = float32(len(grid)*len(grid[0])) + 1
 		totalProgress++
@@ -402,22 +404,39 @@ func loadPicture(path string) (pixel.Picture, error) {
 
 func importSpriteMatrix() {
 	sprites = nil
-	var index [][]string
-	index = readFromFile("export/chunks/matrix.bin", index).([][]string)
-	for i := range index {
-		sprites = append(sprites, []pixel.Sprite{})
-		for j := range index[i] {
-			img, err := loadPicture("export/chunks/" + index[i][j])
-			if err != nil {
-				addLog("[Error]:" + time.Now().Local().String() + ": Could not open chunk file! (It may not exist, you may not have exported anything, one or more pieces could be missing, must be in /export/chunks)... \n")
-				sprites = nil
-			}
-			sprites[i] = append(sprites[i], *pixel.NewSprite(img, img.Bounds()))
+	var temp interface{}
+	temp, err := readFromFile("export/chunks/matrix.bin", temp)
+	index, _ := temp.([][]string)
+	if errors.Is(err, os.ErrNotExist) {
+		addLog("[Warn]:" + time.Now().Local().String() + ": No Matrix configuration file found check for matrix.bin file in /export/chunks... \n")
+		img, err := loadPicture("export/image.png")
+		if errors.Is(err, os.ErrNotExist) {
+			addLog("[Error]:" + time.Now().Local().String() + ": No alternative image found import failed... \n")
+			return
+		} else {
+			sprites = append(sprites, []pixel.Sprite{})
+			sprites[0] = append(sprites[0], *pixel.NewSprite(img, img.Bounds()))
+			imported = 1
+			addLog("[Activity]:" + time.Now().Local().String() + ": Images Imported Successfully... \n")
 		}
+	} else {
+		for i := range index {
+			sprites = append(sprites, []pixel.Sprite{})
+			for j := range index[i] {
+				img, err := loadPicture("export/chunks/" + index[i][j])
+				if err != nil {
+					addLog("[Error]:" + time.Now().Local().String() + ": Could not open chunk file! (It may not exist, you may not have exported anything, one or more pieces could be missing, must be in /export/chunks)... \n")
+					sprites = nil
+				}
+				sprites[i] = append(sprites[i], *pixel.NewSprite(img, img.Bounds()))
+			}
+		}
+		imported = 1
+		addLog("[Activity]:" + time.Now().Local().String() + ": Images Imported Successfully... \n")
 	}
-	imported = 1
-	addLog("[Activity]:" + time.Now().Local().String() + ": Images Imported Successfully... \n")
+
 } // TODO add nessecary checks to make sure that the program just imports the image if no matrix was nessecary
+//TODO NOT SPLITTING IMAGE CORRECTLY FOR CTS EVOLUTIONS 500 FIND OUT WHY
 
 func gridSplit(r image.Rectangle) [][]image.Rectangle {
 	MAX := 8192
